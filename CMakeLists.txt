@@ -3,9 +3,16 @@ project(kstring VERSION 0.1.0)
 
 set(CMAKE_CXX_STANDARD 20)
 
-include(CTest)
-
 add_compile_options(-Wall -Wextra -Werror)
+
+
+option(ENABLE_TEST "if test is enabled" OFF)
+
+if(ENABLE_TEST)
+    include(CTest)
+    add_subdirectory(test)
+endif()
+
 
 add_library(kstring INTERFACE)
 target_include_directories(kstring INTERFACE include)

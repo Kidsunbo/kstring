@@ -13,6 +13,14 @@
 #define CONSTEXPR
 #endif
 
+#if __GNUC__ >= 12
+// For GCC 12, std::string is constexpr which can be used to mark the function related to std::string constexpr
+#define STD_STRING_CONSTEXPR constexpr
+#else
+// For pre-version of GCC 12, std::string is not constexpr
+#define STD_STRING_CONSTEXPR
+#endif
+
 namespace kie
 {
 
@@ -29,7 +37,7 @@ namespace kie
      * 
      * This memory is managed by a `std::unique_ptr`. So the whole class is non-copyable.
      */
-    std::unique_ptr<char[]> _data = nullptr;
+    mutable std::unique_ptr<char[]> _data = nullptr;
 
     /**
      * @brief This is the length of the string.
@@ -47,10 +55,10 @@ namespace kie
      * 
      * @see _length
      */
-    std::size_t _capacity = 0;
+    mutable std::size_t _capacity = 0;
 
   private:
-    constexpr std::size_t calculate_capacity(std::size_t length)
+    constexpr std::size_t calculate_capacity(std::size_t length) const
     {
       if (length < 1024)
       {
@@ -85,11 +93,11 @@ namespace kie
       std::copy(other._data.get(), other._data.get() + _length, _data.get());
     }
 
-    CONSTEXPR string(string &&other) noexcept : _length(std::exchange(other._length, 0)), _data(std::exchange(other._data, nullptr)), _capacity(std::exchange(other._capacity, 0))
+    CONSTEXPR string(string &&other) noexcept :_data(std::exchange(other._data, nullptr)), _length(std::exchange(other._length, 0)), _capacity(std::exchange(other._capacity, 0))
     {
     }
 
-    CONSTEXPR string(const std::string &other)
+    STD_STRING_CONSTEXPR string(const std::string &other)
     {
       _length = other.length();
       _capacity = other.capacity();
@@ -121,6 +129,7 @@ namespace kie
       _length = std::exchange(other._length, 0);
       _capacity = std::exchange(other._capacity, 0);
       _data = std::exchange(other._data, nullptr);
+      return *this;
     }
 
     CONSTEXPR string &operator=(const std::string &s)
@@ -142,7 +151,14 @@ namespace kie
       return std::string_view{_data.get(), _length};
     }
 
-    constexpr const char* to_c_str()const{
+    CONSTEXPR const char* to_c_str()const{
+      if(is_full()){
+        _capacity = calculate_capacity(_length);
+        auto new_data = std::make_unique<char[]>(_capacity);
+        std::copy(_data.get(), _data.get()+_length, new_data.get());
+        _data = std::move(new_data);
+      }
+      _data[_length] = '\0';
       return _data.get();
     }
 
@@ -154,13 +170,65 @@ namespace kie
       return _capacity;
     }
 
+    CONSTEXPR const std::unique_ptr<char[]>& data() const {
+      return _data;
+    }
+
+    CONSTEXPR bool operator==(const string& other)const{
+      if(other._data == _data){return true;}
+      if(other.length() != this->length()){return false;}
+      for(std::size_t i = 0; i<other.length(); i++){
+        if(other._data[i] != _data[i]){
+          return false;
+        }
+      }
+      return true;
+    }
+
     constexpr bool is_full() const{
       return _length == _capacity;
     }
 
+    constexpr bool empty() const{
+      return _length == 0;
+    }
 
+    CONSTEXPR bool append(const string& s){
+      if(s.length() == 0){
+        return false;
+      }
+
+      bool has_extended = false;
+      if(s.length() > _capacity - _length){
+        _capacity = calculate_capacity(_length + s.length());
+        auto new_data = std::make_unique<char[]>(_capacity);
+        std::copy(_data.get(), _data.get()+_length, new_data.get());
+        _data = std::move(new_data);
+        has_extended = true;
+      }
+      std::copy(s._data.get(), s._data.get()+s._length, _data.get()+_length);
+      _length = _length + s.length();
+      return has_extended;
+    }
+
+    CONSTEXPR void reserve(std::size_t size){
+      if(size < _capacity){
+        _capacity = size;
+        return;
+      }
+      auto new_data = std::make_unique<char[]>(size);
+      std::copy(_data.get(), _data.get()+_length, new_data.get());
+      _data = std::move(new_data);
+    }
 
   };
+
+  std::ostream& operator<<(std::ostream& os, const string& s){
+    for(std::size_t i =0; i<s.length(); i++){
+      os<<s.data()[i];
+    }
+    return os;
+  }
 
   class string_view
   {

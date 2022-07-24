@@ -1,5 +1,5 @@
 from conan import ConanFile
-from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout
+from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout, CMakeDeps
 from conans import tools
 
 class KstringConan(ConanFile):
@@ -9,7 +9,7 @@ class KstringConan(ConanFile):
     # Optional metadata
     license = "MIT"
     author = "Kie <qiongxiaozi158@sina.com>"
-    url = "<Package recipe repository url here, for issues about the package>"
+    url = "https://github.com/Kidsunbo/kstring"
     description = "A easy to use string library"
     topics = ("String", "Basic", "Utility")
 
@@ -20,6 +20,10 @@ class KstringConan(ConanFile):
 
     # Sources are located in the same place as this recipe, copy them to the recipe
     exports_sources = "CMakeLists.txt", "include/*", "LICENSE"
+
+    # These two are only needed when developing for testing
+    requires = "gtest/cci.20210126"
+    generators = "CMakeDeps"
 
     def config_options(self):
         if self.settings.os == "Windows":
