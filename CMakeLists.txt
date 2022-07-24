@@ -6,10 +6,12 @@ set(CMAKE_CXX_STANDARD 20)
 add_compile_options(-Wall -Wextra -Werror)
 
 
-option(ENABLE_TEST "if test is enabled" OFF)
+option(ENABLE_TEST "if test is enabled" ON)
 
 if(ENABLE_TEST)
     include(CTest)
+    add_compile_options(-fsanitize=address -g --coverage)
+    add_link_options(-fsanitize=address --coverage)
     add_subdirectory(test)
 endif()
 
